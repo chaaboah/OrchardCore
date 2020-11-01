@@ -89,6 +89,7 @@ namespace OrchardCore.DisplayManagement.Liquid
             Factory.RegisterBlock<NamedHelperBlock>("zone");
             Factory.RegisterBlock<NamedHelperBlock>("form");
             Factory.RegisterBlock<NamedHelperBlock>("scriptblock");
+            Factory.RegisterBlock<NamedHelperBlock>("styleblock");
 
             // Dynamic caching
             Factory.RegisterBlock<CacheBlock>("cache");
@@ -284,7 +285,7 @@ namespace OrchardCore.DisplayManagement.Liquid
 
             var tempDataProvider = services.GetService<ITempDataProvider>();
 
-            return new ViewContext(
+            var viewContext = new ViewContext(
                 actionContext,
                 viewResult.View,
                 new ViewDataDictionary(
@@ -295,6 +296,13 @@ namespace OrchardCore.DisplayManagement.Liquid
                     tempDataProvider),
                 TextWriter.Null,
                 new HtmlHelperOptions());
+
+            if (viewContext.View is RazorView razorView)
+            {
+                razorView.RazorPage.ViewContext = viewContext;
+            }
+
+            return viewContext;
         }
     }
 
@@ -331,6 +339,8 @@ namespace OrchardCore.DisplayManagement.Liquid
                 {
                     await handler.RenderingAsync(context);
                 }
+
+                context.FileProvider = context.Services.GetRequiredService<ILiquidViewFileProviderAccessor>().FileProvider;
 
                 context.CultureInfo = CultureInfo.CurrentUICulture;
 

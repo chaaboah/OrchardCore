@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Fluid;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using OrchardCore.Autoroute.Drivers;
@@ -32,6 +33,7 @@ namespace OrchardCore.Autoroute.Handlers
         private readonly ITagCache _tagCache;
         private readonly ISession _session;
         private readonly IServiceProvider _serviceProvider;
+        private readonly IStringLocalizer S;
 
         private IContentManager _contentManager;
 
@@ -43,7 +45,8 @@ namespace OrchardCore.Autoroute.Handlers
             ISiteService siteService,
             ITagCache tagCache,
             ISession session,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            IStringLocalizer<AutoroutePartHandler> stringLocalizer)
         {
             _entries = entries;
             _options = options.Value;
@@ -53,6 +56,7 @@ namespace OrchardCore.Autoroute.Handlers
             _tagCache = tagCache;
             _session = session;
             _serviceProvider = serviceProvider;
+            S = stringLocalizer;
         }
 
         public override async Task PublishedAsync(PublishContentContext context, AutoroutePart part)
@@ -60,7 +64,7 @@ namespace OrchardCore.Autoroute.Handlers
             // Remove entry if part is disabled.
             if (part.Disabled)
             {
-                _entries.RemoveEntry(part.ContentItem.ContentItemId, part.Path);
+                await _entries.RemoveEntryAsync(part.ContentItem.ContentItemId, part.Path);
             }
 
             // Add parent content item path, and children, only if parent has a valid path.
@@ -80,7 +84,7 @@ namespace OrchardCore.Autoroute.Handlers
                     await PopulateContainedContentItemRoutes(entriesToAdd, part.ContentItem.ContentItemId, containedAspect, context.PublishingItem.Content as JObject, part.Path, true);
                 }
 
-                _entries.AddEntries(entriesToAdd);
+                await _entries.AddEntriesAsync(entriesToAdd);
             }
 
             if (!String.IsNullOrWhiteSpace(part.Path) && !part.Disabled && part.SetHomepage)
@@ -117,30 +121,57 @@ namespace OrchardCore.Autoroute.Handlers
             await _siteService.UpdateSiteSettingsAsync(site);
         }
 
-        public override Task UnpublishedAsync(PublishContentContext context, AutoroutePart part)
+        public override async Task UnpublishedAsync(PublishContentContext context, AutoroutePart part)
         {
             if (!String.IsNullOrWhiteSpace(part.Path))
             {
-                _entries.RemoveEntry(part.ContentItem.ContentItemId, part.Path);
+                await _entries.RemoveEntryAsync(part.ContentItem.ContentItemId, part.Path);
 
                 // Evict any dependent item from cache
-                return RemoveTagAsync(part);
+                await RemoveTagAsync(part);
             }
-
-            return Task.CompletedTask;
         }
 
-        public override Task RemovedAsync(RemoveContentContext context, AutoroutePart part)
+        public override async Task RemovedAsync(RemoveContentContext context, AutoroutePart part)
         {
-            if (!String.IsNullOrWhiteSpace(part.Path))
+            if (!String.IsNullOrWhiteSpace(part.Path) && context.NoActiveVersionLeft)
             {
-                _entries.RemoveEntry(part.ContentItem.ContentItemId, part.Path);
+                await _entries.RemoveEntryAsync(part.ContentItem.ContentItemId, part.Path);
 
                 // Evict any dependent item from cache
-                return RemoveTagAsync(part);
+                await RemoveTagAsync(part);
+            }
+        }
+
+        public override async Task ValidatingAsync(ValidateContentContext context, AutoroutePart part)
+        {
+            // Only validate the path if it's not empty.
+            if (String.IsNullOrWhiteSpace(part.Path))
+            {
+                return;
             }
 
-            return Task.CompletedTask;
+            if (part.Path == "/")
+            {
+                context.Fail(S["Your permalink can't be set to the homepage, please use the homepage option instead."], nameof(part.Path));
+            }
+
+            if (part.Path?.IndexOfAny(AutoroutePartDisplay.InvalidCharactersForPath) > -1 || part.Path?.IndexOf(' ') > -1 || part.Path?.IndexOf("//") > -1)
+            {
+                var invalidCharactersForMessage = string.Join(", ", AutoroutePartDisplay.InvalidCharactersForPath.Select(c => $"\"{c}\""));
+                context.Fail(S["Please do not use any of the following characters in your permalink: {0}. No spaces, or consecutive slashes, are allowed (please use dashes or underscores instead).", invalidCharactersForMessage], nameof(part.Path));
+            }
+
+            if (part.Path?.Length > AutoroutePartDisplay.MaxPathLength)
+            {
+                context.Fail(S["Your permalink is too long. The permalink can only be up to {0} characters.", AutoroutePartDisplay.MaxPathLength], nameof(part.Path));
+            }
+
+            if (!await IsAbsolutePathUniqueAsync(part.Path, part.ContentItem.ContentItemId))
+            {
+                context.Fail(S["Your permalink is already in use."], nameof(part.Path));
+            }
+
         }
 
         public override async Task UpdatedAsync(UpdateContentContext context, AutoroutePart part)
@@ -226,7 +257,8 @@ namespace OrchardCore.Autoroute.Handlers
                         var autoroutePart = contentItem.As<AutoroutePart>();
                         if (setHomepage && autoroutePart != null && autoroutePart.SetHomepage)
                         {
-                            await SetHomeRoute(autoroutePart, homeRoute => {
+                            await SetHomeRoute(autoroutePart, homeRoute =>
+                            {
                                 homeRoute[_options.ContentItemIdKey] = containerContentItemId;
                                 homeRoute[_options.JsonPathKey] = jItem.Path;
                             });
@@ -319,7 +351,7 @@ namespace OrchardCore.Autoroute.Handlers
 
             while (true)
             {
-                // Unversioned length + seperator char + version length.
+                // Unversioned length + separator char + version length.
                 var quantityCharactersToTrim = unversionedPath.Length + 1 + version.ToString().Length - AutoroutePartDisplay.MaxPathLength;
                 if (quantityCharactersToTrim > 0)
                 {
@@ -400,7 +432,7 @@ namespace OrchardCore.Autoroute.Handlers
 
             while (true)
             {
-                // Unversioned length + seperator char + version length.
+                // Unversioned length + separator char + version length.
                 var quantityCharactersToTrim = unversionedPath.Length + 1 + version.ToString().Length - AutoroutePartDisplay.MaxPathLength;
                 if (quantityCharactersToTrim > 0)
                 {
