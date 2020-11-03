@@ -17,16 +17,16 @@ namespace Microsoft.AspNetCore.Authorization
         public static async Task<bool> AuthorizeContentTypeDefinitionsAsync(this IAuthorizationService service, ClaimsPrincipal user, Permission requiredPermission, IEnumerable<ContentTypeDefinition> contentTypeDefinitions, IContentManager contentManager)
         {
             var permission = GetOwnerVariation(requiredPermission);
-            var contentTypePermission = ContentTypePermissionsHelper.ConvertToDynamicPermission(permission);
+            var  dynamicPermission= ContentTypePermissionsHelper.ConvertToDynamicPermission(permission);
 
             foreach (var contentTypeDefinition in contentTypeDefinitions)
             {               
-                var dynamicPermission = ContentTypePermissionsHelper.CreateDynamicPermission(contentTypePermission, contentTypeDefinition);
+                var contentTypePermission = ContentTypePermissionsHelper.CreateDynamicPermission(dynamicPermission, contentTypeDefinition);
 
                 var contentItem = await contentManager.NewAsync(contentTypeDefinition.Name);
                 contentItem.Owner = user.Identity.Name;
 
-                if (await service.AuthorizeAsync(user, dynamicPermission, contentItem))
+                if (await service.AuthorizeAsync(user, contentTypePermission, contentItem))
                 {
                     return true;
                 }
