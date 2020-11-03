@@ -17,7 +17,7 @@ namespace Microsoft.AspNetCore.Authorization
         public static async Task<bool> AuthorizeContentTypeDefinitionsAsync(this IAuthorizationService service, ClaimsPrincipal user, Permission requiredPermission, IEnumerable<ContentTypeDefinition> contentTypeDefinitions, IContentManager contentManager)
         {
             var permission = GetOwnerVariation(requiredPermission);
-            var  dynamicPermission= ContentTypePermissionsHelper.ConvertToDynamicPermission(permission);
+            var dynamicPermission= ContentTypePermissionsHelper.ConvertToDynamicPermission(permission);
 
             foreach (var contentTypeDefinition in contentTypeDefinitions)
             {               
