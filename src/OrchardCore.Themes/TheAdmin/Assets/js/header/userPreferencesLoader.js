@@ -3,25 +3,51 @@
 // We need to apply the classes BEFORE the page is rendered. 
 // That is why we use a MutationObserver instead of document.Ready().
 var observer = new MutationObserver(function (mutations) {
+    var adminPreferences = JSON.parse(localStorage.getItem('adminPreferences'));
+
     for (var i = 0; i < mutations.length; i++) {
         for (var j = 0; j < mutations[i].addedNodes.length; j++) {
+            
             if (mutations[i].addedNodes[j].tagName == 'BODY') {
 
+                var html = document.querySelector("html");
                 var body = mutations[i].addedNodes[j];
 
-                var adminPreferences = JSON.parse(localStorage.getItem('adminPreferences'));
                 if (adminPreferences != null) {
                     if (adminPreferences.leftSidebarCompact == true) {
-                        body.className += ' left-sidebar-compact';
+                        body.classList.add('left-sidebar-compact');
                     }
                     isCompactExplicit = adminPreferences.isCompactExplicit;
-                    if(adminPreferences.darkMode == true) {
-                        body.className += ' darkmode';
+
+                    if(html.getAttribute('data-darkmode') === 'True')
+                    {
+                        if (adminPreferences.darkMode){
+                            html.setAttribute('data-theme', 'darkmode');
+                        }
+                        else
+                        {
+                            html.setAttribute('data-theme', 'default');
+                        }
                     }
-                    darkMode = adminPreferences.darkMode;
-                } else {
-                    body.className += ' no-admin-preferences';
+                } 
+                else 
+                {
+                    body.classList.add('no-admin-preferences');
+
+                    if(html.getAttribute('data-darkmode') === 'True')
+                    {
+                        // Automatically sets darkmode based on OS preferences
+                        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+                        {
+                            html.setAttribute('data-theme', 'darkmode');
+                        }
+                        else
+                        {
+                            html.setAttribute('data-theme', 'default');
+                        }
+                    }
                 }
+
                 // we're done: 
                 observer.disconnect();
             };
