@@ -108,7 +108,7 @@ namespace OrchardCore.DisplayManagement.Liquid.Filters
                 using (var writer = new StringWriter())
                 {
                     task.Result.WriteTo(writer, NullHtmlEncoder.Default);
-                    value = new StringValue(writer.ToString());
+                    value = new StringValue(writer.ToString(), false);
                 }
 
                 return new ValueTask<FluidValue>(value);
@@ -124,7 +124,8 @@ namespace OrchardCore.DisplayManagement.Liquid.Filters
                 return new HtmlContentValue(await task);
             }
 
-            if (input.ToObjectValue() is IShape shape)
+            var shape = input.ToObjectValue();
+            if (shape != null)
             {
                 if (!context.AmbientValues.TryGetValue("DisplayHelper", out var item) || !(item is IDisplayHelper displayHelper))
                 {

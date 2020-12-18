@@ -3,6 +3,12 @@
   <PropertyGroup>
     <TargetFramework>$(AspNetCoreTargetFramework)</TargetFramework>
     <RootNamespace>OrchardCore.ReCaptcha</RootNamespace>
+    <!-- NuGet properties-->
+    <Title>OrchardCore ReCaptcha Core</Title>
+    <Description>$(OCCMSDescription)
+    
+    Core implementation for OrchardCore ReCaptcha</Description>
+    <PackageTags>$(PackageTags) OrchardCoreCMS ContentManagement</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -10,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\OrchardCore.Captcha.Abstractions\OrchardCore.Captcha.Abstractions.csproj" />
     <ProjectReference Include="..\OrchardCore.DisplayManagement\OrchardCore.DisplayManagement.csproj" />
     <ProjectReference Include="..\OrchardCore.ResourceManagement.Abstractions\OrchardCore.ResourceManagement.Abstractions.csproj" />
   </ItemGroup>
